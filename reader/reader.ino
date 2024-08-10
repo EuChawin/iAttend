@@ -3,59 +3,60 @@
 
 #define SS_PIN 10
 #define RST_PIN 9
-
 MFRC522 mfrc522(SS_PIN, RST_PIN);
 
-#define WHITE_LED 5
-#define GREEN_LED 6
-#define RED_LED 7
+#define LED_READY 7
+#define LED_SUCCESS 6
+#define LED_ERROR 5
+
+String currentTime = "2024-08-10 08:00:00"; // Default time
+String status = "ENTRY"; // Default status
 
 void setup() {
-  Serial.begin(9600);
-  SPI.begin();
-  mfrc522.PCD_Init();
-  
-  pinMode(WHITE_LED, OUTPUT);
-  pinMode(GREEN_LED, OUTPUT);
-  pinMode(RED_LED, OUTPUT);
-  
-  digitalWrite(WHITE_LED, HIGH);  // Indicate ready to tap
-  digitalWrite(GREEN_LED, LOW);
-  digitalWrite(RED_LED, LOW);
+    Serial.begin(9600);
+    SPI.begin();
+    mfrc522.PCD_Init();
+
+    pinMode(LED_READY, OUTPUT);
+    pinMode(LED_SUCCESS, OUTPUT);
+    pinMode(LED_ERROR, OUTPUT);
+
+    digitalWrite(LED_READY, HIGH); // Ready to scan
 }
 
 void loop() {
-  if (!mfrc522.PICC_IsNewCardPresent() || !mfrc522.PICC_ReadCardSerial()) {
-    return;
-  }
+    if (Serial.available()) {
+        String command = Serial.readStringUntil('\n');
+        if (command.startsWith("TIME:")) {
+            currentTime = command.substring(5); // Extract time from command
+        } else if (command.startsWith("STATUS:")) {
+            status = command.substring(7); // Extract status from command
+        }
+    }
 
-  digitalWrite(WHITE_LED, LOW);  // Turn off ready LED
+    if (!mfrc522.PICC_IsNewCardPresent() || !mfrc522.PICC_ReadCardSerial()) {
+        return;
+    }
 
-  String uidString = "";
-  Serial.print("UID: ");
-  for (byte i = 0; i < mfrc522.uid.size; i++) {
-    uidString += String(mfrc522.uid.uidByte[i], HEX);
-    Serial.print(mfrc522.uid.uidByte[i] < 0x10 ? "0" : ""); // Leading zero for single digit
-    Serial.print(mfrc522.uid.uidByte[i], HEX);
-    Serial.print(" ");
-  }
-  Serial.println();
+    digitalWrite(LED_READY, LOW); // Scanning...
 
-  if (isValidUID(uidString)) {
-    digitalWrite(GREEN_LED, HIGH);  // Success
-    delay(1000);  // Hold for 1 second
-    digitalWrite(GREEN_LED, LOW);
-  } else {
-    digitalWrite(RED_LED, HIGH);  // Error
-    delay(1000);  // Hold for 1 second
-    digitalWrite(RED_LED, LOW);
-  }
+    String uid = "";
+    for (byte i = 0; i < mfrc522.uid.size; i++) {
+        uid += String(mfrc522.uid.uidByte[i], HEX);
+    }
+    uid.toUpperCase(); // Ensure UID is in uppercase
 
-  digitalWrite(WHITE_LED, HIGH);  // Ready for next tap
-}
+    // Send UID and current time to Serial
+    Serial.println(uid + "," + currentTime + "," + status);
 
-bool isValidUID(String uid) {
-  // Placeholder for UID validation logic
-  // Replace with actual logic
-  return uid.length() > 0;
+    // Turn on LED_SUCCESS for 1 second
+    digitalWrite(LED_SUCCESS, HIGH);
+    delay(1000); // Keep LED on for 1 second
+    digitalWrite(LED_SUCCESS, LOW);
+
+    mfrc522.PICC_HaltA();
+    mfrc522.PCD_StopCrypto1();
+
+    digitalWrite(LED_READY, HIGH);
+    delay(1000); // To prevent multiple scans
 }
