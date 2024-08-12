@@ -42,7 +42,7 @@ def update_attendance(uid, current_time, status):
                 (exit_time, student_id, date)
             )
         conn.commit()
-        display_message(f"Student: {name}\nTime: {current_time}\nStatus: {status}")
+        display_message(f"Student ID: {student_id}, Name: {name}\nTime: {current_time}\nStatus: {status}")
     else:
         display_message(f"UID {uid} not found in database.")
     
@@ -74,8 +74,8 @@ def run_serial_communication(ser, current_time, status):
 
 def handle_database_operations(uid, current_time, status_received):
     threading.Thread(target=update_attendance, args=(uid, current_time, status_received)).start()
-    time.sleep(2)
-    display_message("Please tap a card.")
+    time.sleep(5)
+    display_message("Please tap your card.")
 
 def display_message(message):
     message_label.config(text=message)
@@ -85,15 +85,18 @@ def show_main_gui(current_time, status):
     main_gui = Toplevel(root)
     main_gui.title("iAttend - Tap Card")
 
+    # Set the window size to match the main GUI (2560x1440 or as needed)
+    main_gui.geometry("800x350")
+
     frame = ttk.Frame(main_gui, padding="20")
     frame.grid(row=0, column=0, sticky=(N, S, E, W))
 
-    ttk.Label(frame, text=f"Date: {current_time.split()[0]}").grid(column=1, row=1, sticky=W)
-    ttk.Label(frame, text=f"Time: {current_time.split()[1]}").grid(column=2, row=1, sticky=W)
-    ttk.Label(frame, text=f"Status: {status}").grid(column=3, row=1, sticky=W)
+    ttk.Label(frame, text=f"Date: {current_time.split()[0]}", font=("Helvetica", 24)).grid(column=1, row=1, sticky=W)
+    ttk.Label(frame, text=f"Time: {current_time.split()[1]}", font=("Helvetica", 24)).grid(column=2, row=1, sticky=W)
+    ttk.Label(frame, text=f"Status: {status}", font=("Helvetica", 24)).grid(column=3, row=1, sticky=W)
 
     global message_label
-    message_label = ttk.Label(frame, text="Please tap your card.", foreground="blue", font=("Helvetica", 14))
+    message_label = ttk.Label(frame, text="Please tap your card.", foreground="blue", font=("Helvetica", 24))
     message_label.grid(column=1, row=2, columnspan=3, sticky=(W, E))
 
     ser = serial.Serial('COM3', 9600, timeout=1)  # Adjust 'COM3' as needed
@@ -103,22 +106,29 @@ def show_main_gui(current_time, status):
 root = ThemedTk(theme="arc")
 root.title("iAttend System")
 
+# Set the window size to 2560x1440 (or adjust as needed)
+root.geometry("1400x800")
+
 frame = ttk.Frame(root, padding="20")
 frame.grid(row=0, column=0, sticky=(N, S, E, W))
 
-ttk.Label(frame, text="Set Date and Time (YYYY-MM-DD HH:MM:SS):").grid(column=1, row=1, sticky=W)
-entry_time = ttk.Entry(frame, width=30)
+ttk.Label(frame, text="Set Date and Time (YYYY-MM-DD HH:MM:SS):", font=("Helvetica", 24)).grid(column=1, row=1, sticky=W)
+entry_time = ttk.Entry(frame, width=40, font=("Helvetica", 20))
 entry_time.grid(column=2, row=1, sticky=(W, E))
 
-ttk.Label(frame, text="Select Status:").grid(column=1, row=2, sticky=W)
+ttk.Label(frame, text="Select Status:", font=("Helvetica", 24)).grid(column=1, row=2, sticky=W)
 status_var = StringVar()
-status_combobox = ttk.Combobox(frame, textvariable=status_var, values=("ENTRY", "EXIT"), state="readonly")
+status_combobox = ttk.Combobox(frame, textvariable=status_var, values=("ENTRY", "EXIT"), state="readonly", font=("Helvetica", 20))
 status_combobox.grid(column=2, row=2, sticky=(W, E))
 
-start_button = ttk.Button(frame, text="Start System", command=start_system)
+start_button = ttk.Button(frame, text="Start System", command=start_system, width=20, padding=10, style="TButton")
 start_button.grid(column=2, row=3, sticky=(W, E))
 
+# Customize TButton style to make it larger
+style = ttk.Style()
+style.configure("TButton", font=("Helvetica", 20), padding=10)
+
 for child in frame.winfo_children():
-    child.grid_configure(padx=10, pady=5)
+    child.grid_configure(padx=10, pady=10)
 
 root.mainloop()
