@@ -109,7 +109,7 @@ $late_percentage = $total_days > 0 ? ($late_days / $total_days) * 100 : 0;
         </main>
         <footer>
             <p>&copy; 2024 Assumption College Nakhonratchasima. All rights reserved.</p>
-            <p>Website created by MonkeysFromS5</p>
+            <p>Website created by Euwin</p>
         </footer>
     </div>
 </body>

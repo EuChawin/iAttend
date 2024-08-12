@@ -1,25 +1,28 @@
 import serial
 import sqlite3
+from tkinter import *
+from tkinter import ttk
+from ttkthemes import ThemedTk
+from datetime import datetime
+import threading
+import time
 
-# Connect to SQLite database
-conn = sqlite3.connect(r'C:\sqlite\gui\attendance')
-cursor = conn.cursor()
-
+# Function to update attendance
 def update_attendance(uid, current_time, status):
-    # Extract date and time components
+    conn = sqlite3.connect(r'C:\sqlite\gui\attendance')
+    cursor = conn.cursor()
+    
     date, time_part = current_time.split()
     entry_time = exit_time = None
 
-    # Find the student by UID
-    cursor.execute("SELECT student_id FROM students WHERE uid = ?", (uid,))
+    cursor.execute("SELECT student_id, name FROM students WHERE uid = ?", (uid,))
     student = cursor.fetchone()
 
     if student:
-        student_id = student[0]
+        student_id, name = student
 
         if status == 'ENTRY':
             entry_time = time_part
-            # Insert or update entry time and set attended to 1
             cursor.execute(
                 """
                 INSERT OR REPLACE INTO attendance_daily (student_id, date, entry_time, late, attended)
@@ -27,66 +30,95 @@ def update_attendance(uid, current_time, status):
                 """,
                 (student_id, date, entry_time, student_id, date)
             )
-            # Determine if the student is late (based on entry time)
             if entry_time > '08:00:00':
                 cursor.execute(
                     "UPDATE attendance_daily SET late = 1 WHERE student_id = ? AND date = ?",
                     (student_id, date)
                 )
-
         elif status == 'EXIT':
             exit_time = time_part
-            # Update exit time and attended to 1
             cursor.execute(
                 "UPDATE attendance_daily SET exit_time = ?, attended = 1 WHERE student_id = ? AND date = ?",
                 (exit_time, student_id, date)
             )
-            # Check if the entry time exists to determine late status
-            cursor.execute("SELECT entry_time FROM attendance_daily WHERE student_id = ? AND date = ?", (student_id, date))
-            entry_time_record = cursor.fetchone()
-            if entry_time_record:
-                entry_time = entry_time_record[0]
-                # Define 08:00 AM as the threshold for being late
-                if entry_time and entry_time > '08:00:00':
-                    cursor.execute(
-                        "UPDATE attendance_daily SET late = 1 WHERE student_id = ? AND date = ?",
-                        (student_id, date)
-                    )
-
         conn.commit()
-        print(f"Updated attendance for Student ID: {student_id} on {date} - {status}")
+        display_message(f"Student: {name}\nTime: {current_time}\nStatus: {status}")
     else:
-        print(f"UID {uid} not found in database.")
+        display_message(f"UID {uid} not found in database.")
+    
+    conn.close()
 
 def send_time_and_status_to_arduino(ser, time_str, status):
     ser.write(f"TIME:{time_str}\n".encode())
     ser.write(f"STATUS:{status}\n".encode())
 
-def main():
-    try:
-        ser = serial.Serial('COM3', 9600, timeout=1)  # Adjust 'COM3' as needed
-        # Ask for the current time and status
-        current_time = input("Enter the current time (YYYY-MM-DD HH:MM:SS): ")
-        status = input("Enter status (ENTRY/EXIT): ").strip().upper()
-        
-        if status not in ["ENTRY", "EXIT"]:
-            print("Invalid status. Please enter ENTRY or EXIT.")
-            return
+def start_system():
+    current_time = entry_time.get()
+    status = status_var.get()
 
-        send_time_and_status_to_arduino(ser, current_time, status)
+    if not current_time or not status:
+        display_message("Please set both time and status.")
+        return
 
-        while True:
-            if ser.in_waiting:
-                data = ser.readline().decode().strip()
-                print(f"Received data from Arduino: {data}")  # Debugging line
-                uid, time_str, status_received = data.split(',', 2)
-                uid = uid.upper()  # Ensure UID is in uppercase
-                update_attendance(uid, time_str, status_received)
-    except KeyboardInterrupt:
-        print("Program stopped.")
-    finally:
-        ser.close()
-        conn.close()
+    root.withdraw()
+    show_main_gui(current_time, status)
 
-if __name__ == "__main__":
-    main()
+def run_serial_communication(ser, current_time, status):
+    send_time_and_status_to_arduino(ser, current_time, status)
+
+    while True:
+        if ser.in_waiting:
+            data = ser.readline().decode().strip()
+            uid = data.split(',')[0].strip().upper()  # Extract only the UID
+            handle_database_operations(uid, current_time, status)  # Use the current_time from GUI, not from Arduino
+
+def handle_database_operations(uid, current_time, status_received):
+    threading.Thread(target=update_attendance, args=(uid, current_time, status_received)).start()
+    time.sleep(2)
+    display_message("Please tap a card.")
+
+def display_message(message):
+    message_label.config(text=message)
+    message_label.update()
+
+def show_main_gui(current_time, status):
+    main_gui = Toplevel(root)
+    main_gui.title("iAttend - Tap Card")
+
+    frame = ttk.Frame(main_gui, padding="20")
+    frame.grid(row=0, column=0, sticky=(N, S, E, W))
+
+    ttk.Label(frame, text=f"Date: {current_time.split()[0]}").grid(column=1, row=1, sticky=W)
+    ttk.Label(frame, text=f"Time: {current_time.split()[1]}").grid(column=2, row=1, sticky=W)
+    ttk.Label(frame, text=f"Status: {status}").grid(column=3, row=1, sticky=W)
+
+    global message_label
+    message_label = ttk.Label(frame, text="Please tap your card.", foreground="blue", font=("Helvetica", 14))
+    message_label.grid(column=1, row=2, columnspan=3, sticky=(W, E))
+
+    ser = serial.Serial('COM3', 9600, timeout=1)  # Adjust 'COM3' as needed
+    threading.Thread(target=run_serial_communication, args=(ser, current_time, status)).start()
+
+# GUI Setup
+root = ThemedTk(theme="arc")
+root.title("iAttend System")
+
+frame = ttk.Frame(root, padding="20")
+frame.grid(row=0, column=0, sticky=(N, S, E, W))
+
+ttk.Label(frame, text="Set Date and Time (YYYY-MM-DD HH:MM:SS):").grid(column=1, row=1, sticky=W)
+entry_time = ttk.Entry(frame, width=30)
+entry_time.grid(column=2, row=1, sticky=(W, E))
+
+ttk.Label(frame, text="Select Status:").grid(column=1, row=2, sticky=W)
+status_var = StringVar()
+status_combobox = ttk.Combobox(frame, textvariable=status_var, values=("ENTRY", "EXIT"), state="readonly")
+status_combobox.grid(column=2, row=2, sticky=(W, E))
+
+start_button = ttk.Button(frame, text="Start System", command=start_system)
+start_button.grid(column=2, row=3, sticky=(W, E))
+
+for child in frame.winfo_children():
+    child.grid_configure(padx=10, pady=5)
+
+root.mainloop()
