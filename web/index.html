@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>iAttend | Assumption College Nakhonratchasima</title>
+    <meta name="description" content="Student attendance portal for ACN using iAttend RFID system">
+    <link rel="stylesheet" href="css/styles.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body class="login-bg fade-in">
+    <div class="login-wrapper">
+        <div class="login-card glass-panel">
+            <div class="brand-center">
+                <img src="assets/school-logo.jpg" alt="ACN Logo" class="school-logo-large">
+                <h1>iAttend</h1>
+                <p class="sub-brand">Assumption College Nakhonratchasima</p>
+            </div>
+            
+            <div class="login-header">
+                <h2>Student Portal</h2>
+                <p>Enter your student ID to view your attendance</p>
+            </div>
+
+            <!-- Error message container -->
+            <div id="error-message" class="alert alert-error" style="display: none;"></div>
+
+            <form action="php/login.php" method="post" class="login-form">
+                <div class="form-group">
+                    <label for="student_id">Student ID</label>
+                    <input type="text" id="student_id" name="student_id" class="form-control" placeholder="e.g. 12345" required autocomplete="username">
+                </div>
+                <button type="submit" class="btn btn-primary btn-block">View Records</button>
+            </form>
+        </div>
+        
+        <div class="login-footer">
+            <p>&copy; 2024 Assumption College Nakhonratchasima. All rights reserved.</p>
+            <p>Powered by iAttend</p>
+        </div>
+    </div>
+
+    <script src="js/main.js"></script>
+    <script>
+        // Check for error in URL parameters
+        const urlParams = new URLSearchParams(window.location.search);
+        const error = urlParams.get('error');
+        if (error) {
+            const errorDiv = document.getElementById('error-message');
+            errorDiv.style.display = 'block';
+            if (error === 'not_found') {
+                errorDiv.textContent = 'Invalid Student ID. Please try again.';
+            } else if (error === 'invalid_format') {
+                errorDiv.textContent = 'Please enter a valid numeric Student ID.';
+            } else {
+                errorDiv.textContent = 'An error occurred during login.';
+            }
+        }
+    </script>
+</body>
+</html>
